@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:email="http://www.mulesoft.org/schema/mule/email"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/email http://www.mulesoft.org/schema/mule/email/current/mule-email.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="ef7cf1c8-b89e-4817-b515-4619c2cfca31" >
+		<http:listener-connection host="localhost" port="8081" />
+	</http:listener-config>
+	<salesforce:sfdc-config name="Salesforce_Config" doc:name="Salesforce Config" doc:id="43b0b541-348c-4d40-874e-b4efa77cb39f" >
+		<salesforce:basic-connection username="agopikutti@gmail.com" password="Rayudu@2021" securityToken="7IqY2SujYKJ1fjcdbdaHKouO" />
+	</salesforce:sfdc-config>
+	<file:config name="File_Config" doc:name="File Config" doc:id="b6b54b1a-542d-4042-9978-f73740c630ed" >
+		<file:connection workingDir="C:\Users\Gopi\Desktop" />
+	</file:config>
+	<flow name="npsFlow" doc:id="dc6c86d7-70a6-4a17-b8bc-788c7f895dd9" >
+		<http:listener doc:name="Listener" doc:id="5ef58eb2-50f7-48dd-ab2e-9b3622340fdf" config-ref="HTTP_Listener_config" path="NPS"/>
+		<salesforce:query doc:name="User" doc:id="56fb94f0-117e-48b0-a155-e1f5b974ad45" config-ref="Salesforce_Config">
+			<salesforce:salesforce-query ><![CDATA[SELECT AccountId__c,CompanyName__c,Department__c,FirstName__c,ManagerId__c,Street__c,Channel_Code_c__c,Channel_Group_c__c,Channel_Partner_Customer_ID_c__c,City__c,ContactId__c,Country__c,Dealer_Code_c__c,Division__c,Email__c,EmployeeNumber__c,Full_Name_c__c,Id__c,Id_c__c,IsActive__c,LastName__c,Medallia_Role_c__c,Parent_Dealer_Code_c__c,PostalCode__c,Require_Medallia_Access__c,State__c,Store_Manager_Name_c__c,UserType_c__c FROM NPS_user__c where EmployeeNumber__c != null AND UserType_c__c in ('Internal','External') AND IsActive__c=TRUE]]></salesforce:salesforce-query>
+		</salesforce:query>
+		<ee:transform doc:name="Transform Message" doc:id="150bedf0-4026-4f94-91db-e43136343449" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="user" ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<salesforce:query doc:name="account" doc:id="3dcf2aae-30a0-4f8d-b63f-697b1497854d" config-ref="Salesforce_Config">
+			<salesforce:salesforce-query ><![CDATA[SELECT AccountNumber__c,Channel_c__c,Channel_Manager_c__c,Channel_Partner_ID_c__c,Channel_Principal_c__c,o_Id__c,Principal_Contact_User_c__c,RecordTypeId__c,State_Manager_c__c,Store_Manager_c__c,Store_Manager_Name_c__c from N_account__c]]></salesforce:salesforce-query>
+		</salesforce:query>
+		<ee:transform doc:name="Transform Message" doc:id="2d7cf5e8-d627-4712-b7e0-c2ace1c147cf" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="account" ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<ee:transform doc:name="Transform Message" doc:id="c9ba35fb-6b72-4966-af8f-ecbb8744a8a1" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="lkp1" ><![CDATA[%dw 2.0
+output application/json
+---
+vars.user ++ vars.account]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<flow-ref doc:name="Flow Reference" doc:id="e323b177-ef67-4f7c-88c6-d90ec5cbfe3c" name="lkp"/>
+		<ee:transform doc:name="Transform Message" doc:id="00ae3cd0-79a2-4ef0-a22d-83a58dfe0014" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/csv
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="49e1cca4-7aa5-48f1-b1e9-c02099281855" message="#[payload]"/>
+		<file:write doc:name="Write" doc:id="f8728b3c-6135-4f40-b483-7bfd79ec28a9" config-ref="File_Config" path="C:\Users\Gopi\Desktop\nps.csv"/>
+	</flow>
+	<sub-flow name="lkp" doc:id="07bce05b-f097-4001-b3e1-0415b6a5bab3" >
+		<salesforce:query doc:name="lkp_MANAGER_DETAILS" doc:id="5e8aa1e5-9499-4172-82d8-76660b109701" config-ref="Salesforce_Config">
+			<salesforce:salesforce-query ><![CDATA[SELECT AccountId__c,CompanyName__c,Department__c,FirstName__c,ManagerId__c,Street__c FROM NPS_user__c where Id__c=111]]></salesforce:salesforce-query>
+		</salesforce:query>
+		<ee:transform doc:name="Transform Message" doc:id="a16919be-b898-42a0-b52c-ac0f4db8ad9c" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<ee:transform doc:name="Transform Message" doc:id="b7d31665-f063-4b27-839e-46052523dd6b" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="lkp2" ><![CDATA[%dw 2.0
+output application/json
+---
+payload ++ vars.lkp1]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<ee:transform doc:name="Transform Message" doc:id="44ddbaac-7bc3-4403-836d-3892483f149b" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload map ( payload01 , indexOfPayload01 ) -> {
+	Department__c: payload01.Department__c,
+	CompanyName__c: payload01.CompanyName__c,
+	Street__c: payload01.Street__c,
+	FirstName__c: payload01.FirstName__c,
+	ManagerId__c: payload01.ManagerId__c,
+	AccountId_c: payload01.AccountId__c
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<salesforce:query doc:name="lkp_PRI" doc:id="ec20eb1c-401d-4b52-aa88-4cd929c79598" config-ref="Salesforce_Config">
+			<salesforce:salesforce-query ><![CDATA[SELECT AccountId__c,CompanyName__c,Department__c,FirstName__c,ManagerId__c,Street__c FROM NPS_user__c where Id__c=111]]></salesforce:salesforce-query>
+		</salesforce:query>
+		<ee:transform doc:name="Transform Message" doc:id="b6b982ed-8de4-4f70-8d96-2d42283e6f07" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<ee:transform doc:name="Transform Message" doc:id="42dfb329-7bc4-421f-92d1-a9a356315c35" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="lkp3" ><![CDATA[%dw 2.0
+output application/json
+---
+payload ++ vars.lkp2]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<ee:transform doc:name="Transform Message" doc:id="5df63331-ee07-442f-aed3-d05611ff5825" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload map ( payload01 , indexOfPayload01 ) -> {
+	Department__c: payload01.Department__c,
+	CompanyName__c: payload01.CompanyName__c,
+	Street__c: payload01.Street__c,
+	FirstName__c: payload01.FirstName__c,
+	ManagerId__c: payload01.ManagerId__c,
+	AccountId_c: payload01.AccountId__c
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<salesforce:query doc:name="lkp_CNL_MGR" doc:id="ec2dc446-b9a0-4687-836c-5a3241bbfecc" config-ref="Salesforce_Config">
+			<salesforce:salesforce-query ><![CDATA[SELECT AccountId__c,CompanyName__c,Department__c,FirstName__c,ManagerId__c,Street__c FROM NPS_user__c where Id__c=111]]></salesforce:salesforce-query>
+		</salesforce:query>
+		<ee:transform doc:name="Transform Message" doc:id="acb3d5a1-a011-4335-99ad-63088013d186" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<ee:transform doc:name="Transform Message" doc:id="2d198bb1-513f-43aa-90d2-f9c98fb8b2e7" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="lkp4" ><![CDATA[%dw 2.0
+output application/json
+---
+payload ++ vars.lkp3]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<ee:transform doc:name="Transform Message" doc:id="fec1a951-2d70-4e72-8d17-fcd835d41fca" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload map ( payload01 , indexOfPayload01 ) -> {
+	Department__c: payload01.Department__c,
+	CompanyName__c: payload01.CompanyName__c,
+	Street__c: payload01.Street__c,
+	FirstName__c: payload01.FirstName__c,
+	ManagerId__c: payload01.ManagerId__c,
+	AccountId_c: payload01.AccountId__c
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</sub-flow>
+</mule>
